@@ -3,13 +3,11 @@ on: [push]
 
 jobs:
   test:
-  runs-on: self-hosted
-    # ...
+    runs-on: self-hosted
     permissions:
       id-token: 'write'
       contents: 'read'
     steps:
-      # ...
       - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
         uses: cyberark/conjur-action@v2.0.6
         with:
@@ -17,6 +15,7 @@ jobs:
           account: ${{ secrets.ACCOUNT }}
           authn_id: ${{ secrets.CONJUR_AUTHN_ID }}
           secrets: data/vault/tudor-safe/Database-MySQL-tudor-db/username|sql_username;data/vault/tudor-safe/Database-MySQL-tudor-db/password|sql_password
+
       - name: step02
         run: |
           echo -n 'Retrieved username [ '
@@ -24,4 +23,3 @@ jobs:
           echo -n '] and password [ '
           echo -n $sql_password | sed 's/./& /g'
           echo ']'
-      # ...
