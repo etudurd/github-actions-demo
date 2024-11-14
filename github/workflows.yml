@@ -15,7 +15,7 @@ jobs:
           url: ${{ secrets.CONJUR_URL }}
           account: cyberarkdemo
           authn_id: ${{ secrets.CONJUR_AUTHN_ID }}
-          secrets: db/sqlusername|sql_username;db/sql_password|sql_password
+          secrets: data/vault/tudor-safe/Database-MySQL-tudor-db/username|sql_username;data/vault/tudor-safe/Database-MySQL-tudor-db/password|sql_password
       - name: step02
         run: |
           echo -n 'Retrieved username [ '
