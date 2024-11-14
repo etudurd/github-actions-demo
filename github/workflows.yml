@@ -15,7 +15,7 @@ jobs:
         uses: cyberark/conjur-action@v2.0.6
         with:
           url: ${{ secrets.CONJUR_URL }}
-          account: cyberarkdemo
+          account: ${{ secrets.ACCOUNT }}
           authn_id: ${{ secrets.CONJUR_AUTHN_ID }}
           secrets: data/vault/tudor-safe/Database-MySQL-tudor-db/username|sql_username;data/vault/tudor-safe/Database-MySQL-tudor-db/password|sql_password
       - name: step02
