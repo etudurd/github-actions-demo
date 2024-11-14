@@ -22,4 +22,4 @@ jobs:
           echo -n $sql_username | sed 's/./& /g'
           echo -n '] and password [ '
           echo -n $sql_password | sed 's/./& /g'
-          echo ']'
+          echo ']-'
