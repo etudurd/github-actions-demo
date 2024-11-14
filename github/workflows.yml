@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   test:
-  runs-on: [pve]
+  runs-on: self-hosted
     # ...
     permissions:
       id-token: 'write'
