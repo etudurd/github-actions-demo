@@ -1,4 +1,4 @@
-name: github-apps-poc/release
+name: workflow
 on: [push]
 
 jobs:
@@ -15,7 +15,8 @@ jobs:
           #account: ${{ secrets[format('{0}_account', github.head_ref)] }}
           #authn_id: ${{ secrets[format('{0}_authn_id', github.head_ref)] }}
           url: ${{ secrets.CONJUR_URL }}
-          account: ${{ secrets.ACCOUNT }}
+          account: conjur 
+          #${{ secrets.ACCOUNT }}
           authn_id: ${{ secrets.AUTHN_ID }}
           secrets: data/vault/tudor-safe/Database-MySQL-tudor-db/username|sql_username;data/vault/tudor-safe/Database-MySQL-tudor-db/password|sql_password
 
