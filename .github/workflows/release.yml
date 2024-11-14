@@ -1,4 +1,4 @@
-name: data/github-apps-poc
+name: data/github-apps-poc/release
 on: [push]
 
 jobs:
