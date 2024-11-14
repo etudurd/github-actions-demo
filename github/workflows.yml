@@ -1,8 +1,10 @@
 name: my-workflow
 on: [push]
+#on: [push]
 
 jobs:
   test:
+  runs-on: [pve]
     # ...
     permissions:
       id-token: 'write'
