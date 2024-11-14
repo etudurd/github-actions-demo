@@ -1,1 +1,26 @@
+name: my-workflow
+on: [push]
 
+jobs:
+  test:
+    # ...
+    permissions:
+      id-token: 'write'
+      contents: 'read'
+    steps:
+      # ...
+      - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
+        uses: cyberark/conjur-action@v2.0.6
+        with:
+          url: ${{ secrets.CONJUR_URL }}
+          account: cyberarkdemo
+          authn_id: ${{ secrets.CONJUR_AUTHN_ID }}
+          secrets: db/sqlusername|sql_username;db/sql_password|sql_password
+      - name: step02
+        run: |
+          echo -n 'Retrieved username [ '
+          echo -n $sql_username | sed 's/./& /g'
+          echo -n '] and password [ '
+          echo -n $sql_password | sed 's/./& /g'
+          echo ']'
+      # ...
