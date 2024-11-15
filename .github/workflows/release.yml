@@ -24,7 +24,7 @@ jobs:
       - name: step02
         run: |
           echo -n 'Retrieved username [ '
-          echo -n $sql_username | sed 's/./& /g'
+          echo -n $SQL_USERNAME| sed 's/./& /g'
           echo -n '] and password [ '
-          echo -n $sql_password | sed 's/./& /g'
-          echo '.,]'
+          echo -n $SQL_PASSWORD | sed 's/./& /g'
+          echo ']'
