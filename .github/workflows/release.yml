@@ -1,4 +1,4 @@
-name: release222
+name: release
 on: [push]
 
 jobs:
