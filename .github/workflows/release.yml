@@ -18,7 +18,7 @@ jobs:
           account: conjur 
           #${{ secrets.ACCOUNT }}
           authn_id: ${{ secrets.AUTHN_ID }}
-         # host_id: data/github-apps-poc/release
+         # ,host_id: data/github-apps-poc/release
           secrets: data/vault/tudor-safe/Database-MySQL-tudor-db/username|sql_username;data/vault/tudor-safe/Database-MySQL-tudor-db/password|sql_password
 
       - name: step02
