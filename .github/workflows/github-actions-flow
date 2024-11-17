@@ -13,7 +13,7 @@ jobs:
         with:
           url: ${{ secrets.CONJUR_URL }}
           account: ${{ secrets.ACCOUNT }}
-          authn_id: ${{ secrets.AUTHN_ID }}
+          authn_id: ${{ secrets.AUTHN_ID_2 }}
           secrets: data/vault/poc-tud-2025/Database-MySQL-poc-username/username|sql_username;data/vault/poc-tud-2025/Database-MySQL-poc-username/password|sql_password
 
       - name: step02
