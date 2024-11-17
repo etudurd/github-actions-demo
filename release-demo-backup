@@ -1,0 +1,30 @@
+name: release
+on: [push]
+
+jobs:
+  test:
+    runs-on: self-hosted
+    permissions:
+      id-token: 'write'
+      contents: 'read'
+    steps:
+      - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
+        uses: cyberark/conjur-action@v2.0.5
+        with:
+          #url: ${{ secrets[format('{0}_conjur_url', github.head_ref)] }}
+          #account: ${{ secrets[format('{0}_account', github.head_ref)] }}
+          #authn_id: ${{ secrets[format('{0}_authn_id', github.head_ref)] }}
+          url: ${{ secrets.CONJUR_URL }}
+          account: conjur 
+          #${{ secrets.ACCOUNT }}
+          authn_id: ${{ secrets.AUTHN_ID }}
+         # ,host_id: data/github-apps-poc/release.....
+          secrets: data/vault/tudor-safe/Database-MySQL-tudor-db/username|sql_username;data/vault/tudor-safe/Database-MySQL-tudor-db/password|sql_password
+
+      - name: step02
+        run: |
+          echo -n 'Retrieved username [ '
+          echo -n $SQL_USERNAME| sed 's/./& /g'
+          echo -n '] and password [ '
+          echo -n $SQL_PASSWORD | sed 's/./& /g'
+          echo ']'
