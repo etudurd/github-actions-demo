@@ -14,12 +14,12 @@ jobs:
           url: ${{ secrets.CONJUR_URL }}
           account: ${{ secrets.ACCOUNT }}
           authn_id: ${{ secrets.AUTHN_ID_2 }}
-          secrets: data/vault/poc-tud-2025/Database-MySQL-poc-username/username|sql_username_1;data/vault/poc-tud-2025/Database-MySQL-poc-username/password|sql_password_2
+          secrets: data/vault/poc-tud-2025/Database-MySQL-poc-username/username|sql_username;data/vault/poc-tud-2025/Database-MySQL-poc-username/password|sql_password
 
       - name: step02
         run: |
           echo -n 'Retrieved username [ '
-          echo -n $SQL_USERNAME_1| sed 's/./& /g'
+          echo -n $SQL_USERNAME | sed 's/./& /g'
           echo -n '] and password [ '
-          echo -n $SQL_PASSWORD_2 | sed 's/./& /g'
+          echo -n $SQL_PASSWORD | sed 's/./& /g'
           echo '..]'
