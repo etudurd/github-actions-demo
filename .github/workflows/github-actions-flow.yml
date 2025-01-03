@@ -8,7 +8,7 @@ jobs:
       id-token: 'write'
       contents: 'read'
     steps:
-      - name: Import Secrets using CyberArk Conjur Secret Fetcher Action..
+      - name: Import Secrets using CyberArk Conjur Secret Fetcher Action.
         uses: cyberark/conjur-action@v2.0.6
         with:
           url: ${{ secrets.CONJUR_URL }}
