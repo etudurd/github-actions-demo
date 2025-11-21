@@ -3,7 +3,7 @@ on: [push]
 
 jobs:
   test:
-    runs-on: ubuntu
+    runs-on: self-hosted
     permissions:
       id-token: 'write'
       contents: 'read'
