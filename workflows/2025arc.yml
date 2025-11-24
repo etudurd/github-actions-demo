@@ -1,0 +1,15 @@
+name: TudorTestArc
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: github-arc-runners
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run test
+        run: |
+          echo "Hello from ARC runner on OpenShift TUdor dd25"
+          uname -a
