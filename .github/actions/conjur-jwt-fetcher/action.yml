@@ -93,6 +93,7 @@ runs:
 
 
     # 4) Fetch secrets using the mapping
+    
     - name: Fetch Conjur secrets
       shell: bash
       run: |
@@ -113,17 +114,25 @@ runs:
           env_name="${pair##*|}"
 
           encoded=$(printf '%s' "$conjur_var" | sed 's/\//%2F/g')
-
           SECRET_URL="${{ inputs.url }}/secrets/${{ inputs.account }}/variable/${encoded}"
 
-          value=$(curl -sS $CURL_CA_OPT \
+          TMP_RESP=$(mktemp)
+          HTTP_CODE=$(curl -sS $CURL_CA_OPT \
+            -o "$TMP_RESP" \
+            -w "%{http_code}" \
             -H "Authorization: Token token=\"${CONJUR_TOKEN}\"" \
             "$SECRET_URL")
 
-          if [ -z "$value" ]; then
-            echo "Failed to fetch secret for $conjur_var"
+          BODY=$(cat "$TMP_RESP")
+          rm -f "$TMP_RESP"
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Failed to fetch $conjur_var (HTTP $HTTP_CODE)"
+            echo "Response body:"
+            echo "$BODY"
             exit 1
           fi
 
-          echo "${env_name}=${value}" >> "$GITHUB_ENV"
+          # BODY is the secret value
+          echo "${env_name}=${BODY}" >> "$GITHUB_ENV"
         done
