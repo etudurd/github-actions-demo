@@ -1,4 +1,4 @@
-name: SelfHosted Conjur enteprise
+name: SelfHosted Conjur enteprise API 
 
 on:
   push:
