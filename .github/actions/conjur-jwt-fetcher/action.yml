@@ -1,5 +1,5 @@
 name: "Conjur JWT Fetcher dockerless @tudorUrdes"
-description: "Fetch secrets from CyberArk Conjur using GitHub OIDC JWT - arc tested"
+description: "Fetch secrets from CyberArk Conjur using GitHub OIDC JWT - ARC tested (no audience)"
 
 inputs:
   url:
@@ -13,9 +13,6 @@ inputs:
     required: false
   authn_id:
     description: "authn-jwt/<id> configured in Conjur (e.g. authn-jwt/github)"
-    required: true
-  audience:
-    description: "JWT audience configured in Conjur for GitHub OIDC"
     required: true
   secrets:
     description: "Mapping: conjur-path|ENV;conjur-path2|ENV2"
@@ -33,7 +30,7 @@ runs:
           echo "${{ inputs.certificate }}" > conjur-ca.pem
         fi
 
-    # 2) Get GitHub OIDC Token
+    # 2) Get GitHub OIDC Token (NO audience)
     - name: Get OIDC Token
       id: oidc
       shell: bash
@@ -45,10 +42,9 @@ runs:
           exit 1
         fi
 
-        AUD="${{ inputs.audience }}"
-
-        RAW_JSON=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUD}")
+        RAW_JSON=$(curl -sS \
+          -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}")
 
         TOKEN=$(printf '%s' "$RAW_JSON" \
           | sed -n 's/.*"value"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
@@ -73,8 +69,7 @@ runs:
         if [ -f conjur-ca.pem ]; then
           CURL_CA_OPT="--cacert conjur-ca.pem"
         else
-          # PoC only – remove -k when you always provide CA
-          CURL_CA_OPT="-k"
+          CURL_CA_OPT="-k"   # poc only
         fi
 
         CONJUR_TOKEN=$(curl -sS $CURL_CA_OPT \
@@ -110,7 +105,6 @@ runs:
           conjur_var="${pair%%|*}"
           env_name="${pair##*|}"
 
-          # Minimal URL-encode: encode '/' as %2F (enough for paths like secrets/github-user)
           encoded=$(printf '%s' "$conjur_var" | sed 's/\//%2F/g')
 
           SECRET_URL="${{ inputs.url }}/secrets/${{ inputs.account }}/variable/${encoded}"
