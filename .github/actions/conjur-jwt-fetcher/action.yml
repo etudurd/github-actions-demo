@@ -78,7 +78,7 @@ runs:
           --data-urlencode "jwt=${OIDC_TOKEN}" \
           "$AUTH_URL")
 
-        # Just strip CR/LF, keep JSON/JWT structure intact
+        # strip CR/LF, keep JSON intact
         CONJUR_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '\r\n')
 
         if [ -z "$CONJUR_TOKEN" ]; then
@@ -88,7 +88,6 @@ runs:
         fi
 
         echo "CONJUR_TOKEN=$CONJUR_TOKEN" >> "$GITHUB_ENV"
-
 
 
     # 4) Fetch secrets using the beared
@@ -123,7 +122,7 @@ runs:
           HTTP_CODE=$(curl -sS $CURL_CA_OPT \
             -o "$TMP_RESP" \
             -w "%{http_code}" \
-            -H "Authorization: Bearer ${CONJUR_TOKEN}" \
+            -H "Authorization: Token token=${CONJUR_TOKEN}" \
             "$SECRET_URL")
 
           BODY=$(cat "$TMP_RESP")
@@ -137,6 +136,9 @@ runs:
             echo "$BODY"
             exit 1
           fi
+
+          echo "${env_name}=${BODY}" >> "$GITHUB_ENV"
+        done
 
           echo "${env_name}=${BODY}" >> "$GITHUB_ENV"
         done
