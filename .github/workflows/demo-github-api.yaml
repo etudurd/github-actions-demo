@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
-        uses: cyberark/conjur-action@2.0.12
+        uses: cyberark/conjur-action@v2.0.12
         with:
           url: ${{ secrets.CONJUR_URL_ENT }}
           account: conjur
