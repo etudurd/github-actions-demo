@@ -6,11 +6,17 @@ on:
 jobs:
   test:
     runs-on: github-arc-runners
+
     permissions:
-     id-token: 'write'
-     contents: 'read'
+      id-token: write
+      contents: read
+
     steps:
       - uses: actions/checkout@v2
+
+      # MUST run after OIDC token is generated inside the composite action
+      # So we print it after the action populates $OIDC_TOKEN in GITHUB_ENV
+
       - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
         uses: ./.github/actions/conjur-jwt-fetcher
         with:
@@ -19,6 +25,22 @@ jobs:
           certificate: ${{ secrets.CERTIFICATE_ENT }}
           authn_id: ${{ secrets.AUTHN_ID_ENT }}
           secrets: secrets/github-user|sql_username;secrets/github-password|sql_password
+
+      - name: Debug OIDC token header/payload (no signature)
+        shell: bash
+        run: |
+          if [ -z "$OIDC_TOKEN" ]; then
+            echo "OIDC_TOKEN is empty — this means Conjur authn failed BEFORE token was exported."
+            exit 1
+          fi
+
+          IFS='.' read -r H P S <<< "$OIDC_TOKEN"
+          echo "Header:"
+          echo "$H" | base64 -d 2>/dev/null || echo "b64 decode error"
+
+          echo ""
+          echo "Payload:"
+          echo "$P" | base64 -d 2>/dev/null || echo "b64 decode error"
 
       - name: Print fetched secrets
         run: |
