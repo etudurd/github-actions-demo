@@ -14,7 +14,7 @@ jobs:
         uses: cyberark/conjur-action@v2.0.12
         with:
           url: ${{ secrets.CONJUR_URL_ENT }}
-          account: conjur
+          account: poc-conjur
           certificate: ${{ secrets.CERTIFICATE_ENT }}
           authn_id: ${{ secrets.AUTHN_ID_ENT }}
           secrets: secrets/github-user|sql_username;secrets/github-password|sql_password
