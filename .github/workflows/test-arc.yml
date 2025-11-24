@@ -9,5 +9,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          echo "Hello from ARC runner on OpenShift TUdor dd2025"
+          echo "Hello from ARC runner on OpenShift TUdor dd25"
           uname -a
