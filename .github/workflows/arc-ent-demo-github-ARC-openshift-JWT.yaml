@@ -42,6 +42,12 @@ jobs:
           echo "Payload:"
           echo "$P" | base64 -d 2>/dev/null || echo "b64 decode error"
 
+
+      - name: Print fetched secrets
+        run: |
+          echo "Username: $SQL_USERNAME"
+          echo "Password: $SQL_PASSWORD"
+          
       - name: Print fetched secrets
         run: |
           echo -n 'Retrieved username [ '
