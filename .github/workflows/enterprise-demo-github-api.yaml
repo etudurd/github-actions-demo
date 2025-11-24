@@ -21,4 +21,6 @@ jobs:
       - name: Print fetched secrets
         run: |
           echo 'Retrieved secret:'
-          echo $SQL_USERNAME | sed 's/./& /g'
+          echo -n $SQL_USERNAME | sed 's/./& /g'
+          #echo -n $SQL_PASSWORD | sed 's/./& /g'
+          echo '..]'
