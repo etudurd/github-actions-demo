@@ -1,96 +1,106 @@
-name: "Conjur JWT Fetcher Dockerless"
-description: "Fetch secrets from CyberArk Conjur using GitHub OIDC JWT, ARC compatible version 0.9"
+name: "Conjur JWT Fetcher dockerless @tudorUrdes"
+description: "Fetch secrets from CyberArk Conjur using GitHub OIDC JWT - arc tested"
 
 inputs:
-  conjur-url:
-    description: "Base URL of Conjur (e.g. https://dns)"
+  url:
+    description: "Base URL of Conjur, e.g. https://18.130.69.198 or FQDN"
     required: true
-  conjur-account:
-    description: "Conjur account name"
+  account:
+    description: "Conjur account name (e.g. poc-conjur)"
     required: true
-  conjur-authn-id:
-    description: "authn-jwt/<id> configured in Conjur"
-    required: true
-  conjur-ca-cert:
-    description: "PEM certificate for TLS (optional)"
+  certificate:
+    description: "PEM CA certificate for Conjur TLS (optional)"
     required: false
+  authn_id:
+    description: "authn-jwt/<id> configured in Conjur (e.g. authn-jwt/github)"
+    required: true
   audience:
-    description: "JWT audience configured in Conjur"
+    description: "JWT audience configured in Conjur for GitHub OIDC"
     required: true
   secrets:
-    description: "Mapping: conjur-path|ENV;conjur-path|ENV"
+    description: "Mapping: conjur-path|ENV;conjur-path2|ENV2"
     required: true
 
 runs:
   using: "composite"
   steps:
 
-    # --- Write CA cert if provided ---
+    # 1) Write CA certificate if provided
     - name: Write CA certificate if provided
       shell: bash
       run: |
-        if [ -n "${{ inputs.conjur-ca-cert }}" ]; then
-          echo "${{ inputs.conjur-ca-cert }}" > conjur-ca.pem
+        if [ -n "${{ inputs.certificate }}" ]; then
+          echo "${{ inputs.certificate }}" > conjur-ca.pem
         fi
 
-    # --- Get GitHub OIDC Token ---
+    # 2) Get GitHub OIDC Token
     - name: Get OIDC Token
       id: oidc
       shell: bash
       run: |
         set -euo pipefail
 
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+          echo "GitHub OIDC env vars not present; ensure permissions.id-token: write"
+          exit 1
+        fi
+
         AUD="${{ inputs.audience }}"
 
-        # Request OIDC token from GitHub
         RAW_JSON=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUD}" )
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUD}")
 
-        # Extract the value field without jq
         TOKEN=$(printf '%s' "$RAW_JSON" \
           | sed -n 's/.*"value"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
 
         if [ -z "$TOKEN" ]; then
           echo "Failed to extract OIDC token"
-          echo "Raw JSON was: $RAW_JSON"
+          echo "Raw JSON: $RAW_JSON"
           exit 1
         fi
 
         echo "OIDC_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
-    # --- Authenticate to Conjur via authn-jwt ---
+    # 3) Authenticate to Conjur via authn-jwt
     - name: Authenticate to Conjur
       id: conjur-auth
       shell: bash
       run: |
         set -euo pipefail
 
-        AUTH_URL="${{ inputs.conjur-url }}/authn-jwt/${{ inputs.conjur-authn-id }}/${{ inputs.conjur-account }}/authenticate"
-        CURL_CA_ARG=""
+        AUTH_URL="${{ inputs.url }}/authn-jwt/${{ inputs.authn_id }}/${{ inputs.account }}/authenticate"
+
         if [ -f conjur-ca.pem ]; then
-          CURL_CA_ARG="--cacert conjur-ca.pem"
+          CURL_CA_OPT="--cacert conjur-ca.pem"
         else
-          CURL_CA_ARG="-k"
+          # PoC only – remove -k when you always provide CA
+          CURL_CA_OPT="-k"
         fi
 
-        CONJUR_TOKEN=$(curl -sS $CURL_CA_ARG \
+        CONJUR_TOKEN=$(curl -sS $CURL_CA_OPT \
           -X POST \
           -H "Content-Type: application/x-www-form-urlencoded" \
           --data-urlencode "jwt=${OIDC_TOKEN}" \
           "$AUTH_URL")
 
         if [ -z "$CONJUR_TOKEN" ]; then
-          echo "Failed to authenticate to Conjur"
+          echo "Failed to authenticate to Conjur via authn-jwt"
           exit 1
         fi
 
         echo "CONJUR_TOKEN=$CONJUR_TOKEN" >> "$GITHUB_ENV"
 
-    # --- Fetch secrets mapping ---
+    # 4) Fetch secrets using the mapping
     - name: Fetch Conjur secrets
       shell: bash
       run: |
         set -euo pipefail
+
+        if [ -f conjur-ca.pem ]; then
+          CURL_CA_OPT="--cacert conjur-ca.pem"
+        else
+          CURL_CA_OPT="-k"
+        fi
 
         IFS=';' read -ra PAIRS <<< "${{ inputs.secrets }}"
 
@@ -100,22 +110,19 @@ runs:
           conjur_var="${pair%%|*}"
           env_name="${pair##*|}"
 
-          # URL-encode manually (safe for alphanumerics, slash, hyphen)
+          # Minimal URL-encode: encode '/' as %2F (enough for paths like secrets/github-user)
           encoded=$(printf '%s' "$conjur_var" | sed 's/\//%2F/g')
 
-          SECRET_URL="${{ inputs.conjur-url }}/secrets/${{ inputs.conjur-account }}/variable/${encoded}"
+          SECRET_URL="${{ inputs.url }}/secrets/${{ inputs.account }}/variable/${encoded}"
 
-          CURL_CA_ARG=""
-          [ -f conjur-ca.pem ] && CURL_CA_ARG="--cacert conjur-ca.pem" || CURL_CA_ARG="-k"
-
-          value=$(curl -sS $CURL_CA_ARG \
+          value=$(curl -sS $CURL_CA_OPT \
             -H "Authorization: Token token=\"${CONJUR_TOKEN}\"" \
             "$SECRET_URL")
 
           if [ -z "$value" ]; then
-            echo "Failed to fetch secret: $conjur_var"
+            echo "Failed to fetch secret for $conjur_var"
             exit 1
           fi
 
-          echo "$env_name=$value" >> "$GITHUB_ENV"
+          echo "${env_name}=${value}" >> "$GITHUB_ENV"
         done
