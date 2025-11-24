@@ -58,6 +58,7 @@ runs:
         echo "OIDC_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
     # 3) Authenticate to Conjur via authn-jwt
+    
     - name: Authenticate to Conjur
       id: conjur-auth
       shell: bash
@@ -69,21 +70,27 @@ runs:
         if [ -f conjur-ca.pem ]; then
           CURL_CA_OPT="--cacert conjur-ca.pem"
         else
-          CURL_CA_OPT="-k"   # poc only
+          CURL_CA_OPT="-k"   # PoC only
         fi
 
-        CONJUR_TOKEN=$(curl -sS $CURL_CA_OPT \
+        # capture raw response
+        RAW_TOKEN=$(curl -sS $CURL_CA_OPT \
           -X POST \
           -H "Content-Type: application/x-www-form-urlencoded" \
           --data-urlencode "jwt=${OIDC_TOKEN}" \
           "$AUTH_URL")
 
+        # trim newlines / spaces
+        CONJUR_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '\r\n ')
+
         if [ -z "$CONJUR_TOKEN" ]; then
           echo "Failed to authenticate to Conjur via authn-jwt"
+          echo "Raw response was: $RAW_TOKEN"
           exit 1
         fi
 
         echo "CONJUR_TOKEN=$CONJUR_TOKEN" >> "$GITHUB_ENV"
+
 
     # 4) Fetch secrets using the mapping
     - name: Fetch Conjur secrets
