@@ -5,7 +5,7 @@ on:
 
 jobs:
   test:
-    runs-on: github-arc-runners
+    runs-on: alpine
 
     steps:
       - uses: actions/checkout@v4
