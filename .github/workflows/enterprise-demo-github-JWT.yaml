@@ -1,0 +1,30 @@
+name: SelfHosted Conjur enteprise JWT AUTHN
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
+        uses: cyberark/conjur-action@v2.0.12
+        with:
+          url: ${{ secrets.CONJUR_URL_ENT }}
+          account: conjur
+          host_id: ${{ secrets.CONJUR_HOST_ENT }}
+          api_key: ${{ secrets.CONJUR_API_KEY_ENT }}
+          certificate: ${{ secrets.CERTIFICATE_ENT }}
+          authn_id: ${{ secrets.AUTHN_ID_ENT }}
+          secrets: secrets/github-user|sql_username;secrets/github-password|sql_password
+
+      - name: Print fetched secrets
+        run: |
+          echo -n 'Retrieved username [ '
+          echo -n $SQL_USERNAME | sed 's/./& /g'
+          echo -n '] and password [ '
+          echo -n $SQL_PASSWORD | sed 's/./& /g'
+          echo ' ]'
