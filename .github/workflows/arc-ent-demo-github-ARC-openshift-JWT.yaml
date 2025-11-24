@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # MUST run after OIDC token is generated inside the composite action.
+      # MUST run after OIDC token is generated inside the composite action
       # So we print it after the action populates $OIDC_TOKEN in GITHUB_ENV
 
       - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
