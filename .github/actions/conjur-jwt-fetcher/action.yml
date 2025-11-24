@@ -1,5 +1,5 @@
 name: "Conjur JWT Fetcher dockerless @tudorUrdes"
-description: "Fetch secrets from CyberArk Conjur using GitHub OIDC JWT - ARC tested (no audience)"
+description: "Fetch secrets from CyberArk Conjur using GitHub OIDC JWT - ARC tested"
 
 inputs:
   url:
@@ -15,7 +15,7 @@ inputs:
     description: "authn-jwt/<id> configured in Conjur (e.g. authn-jwt/github)"
     required: true
   secrets:
-    description: "Mapping: conjur-path|ENV;conjur-path2|ENV2"
+    description: "Mapping: conjur-var-id|ENV;conjur-var-id2|ENV2  (no spaces)"
     required: true
 
 runs:
@@ -27,10 +27,10 @@ runs:
       shell: bash
       run: |
         if [ -n "${{ inputs.certificate }}" ]; then
-          echo "${{ inputs.certificate }}" > conjur-ca.pem
+          echo "${{ inputs.certificate }}" > "conjur_${{ inputs.account }}.pem"
         fi
 
-    # 2) Get GitHub OIDC Token (NO audience)
+    # 2) Get GitHub OIDC Token (no audience param)
     - name: Get OIDC Token
       id: oidc
       shell: bash
@@ -42,68 +42,63 @@ runs:
           exit 1
         fi
 
-        RAW_JSON=$(curl -sS \
-          -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "${ACTIONS_ID_TOKEN_REQUEST_URL}")
+        RAW_JSON=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL")
 
         TOKEN=$(printf '%s' "$RAW_JSON" \
           | sed -n 's/.*"value"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
 
         if [ -z "$TOKEN" ]; then
           echo "Failed to extract OIDC token"
-          echo "Raw JSON: $RAW_JSON"
+          echo "Raw JSON from GitHub:"
+          echo "$RAW_JSON"
           exit 1
         fi
 
         echo "OIDC_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
-    # 3) Authenticate to Conjur via authn-jwt
+    # 3) Authenticate to Conjur via authn-jwt (MIRRORS entrypoint.sh behavior)
     - name: Authenticate to Conjur
       id: conjur-auth
       shell: bash
       run: |
         set -euo pipefail
 
-        AUTH_URL="${{ inputs.url }}/authn-jwt/${{ inputs.authn_id }}/${{ inputs.account }}/authenticate"
-
-        if [ -f conjur-ca.pem ]; then
-          CURL_CA_OPT="--cacert conjur-ca.pem"
+        if [ -f "conjur_${{ inputs.account }}.pem" ]; then
+          CURL_CA_OPT="--cacert conjur_${{ inputs.account }}.pem"
         else
-          CURL_CA_OPT="-k"   # PoC only
+          # PoC only – remove -k when you always provide CA
+          CURL_CA_OPT="-k"
         fi
 
-        RAW_TOKEN=$(curl -sS $CURL_CA_OPT \
+        AUTH_URL="${{ inputs.url }}/authn-jwt/${{ inputs.authn_id }}/${{ inputs.account }}/authenticate"
+
+        # CRITICAL: Accept-Encoding: base64 = same as official conjur-action entrypoint.sh
+        CONJUR_TOKEN=$(curl -sS $CURL_CA_OPT \
           -X POST \
           -H "Content-Type: application/x-www-form-urlencoded" \
+          -H "Accept-Encoding: base64" \
           --data-urlencode "jwt=${OIDC_TOKEN}" \
           "$AUTH_URL")
 
-        # strip CR/LF, keep JSON intact
-        CONJUR_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '\r\n')
-
         if [ -z "$CONJUR_TOKEN" ]; then
-          echo "Failed to authenticate to Conjur via authn-jwt"
-          echo "Raw response was: $RAW_TOKEN"
+          echo "Failed to authenticate to Conjur via authn-jwt (empty token)"
           exit 1
         fi
 
         echo "CONJUR_TOKEN=$CONJUR_TOKEN" >> "$GITHUB_ENV"
 
-
-    # 4) Fetch secrets using the beared
-    
+    # 4) Fetch secrets using the mapping (conjur-var-id|ENV;...)
     - name: Fetch Conjur secrets
       shell: bash
       run: |
         set -euo pipefail
 
-        if [ -f conjur-ca.pem ]; then
-          CURL_CA_OPT="--cacert conjur-ca.pem"
+        if [ -f "conjur_${{ inputs.account }}.pem" ]; then
+          CURL_CA_OPT="--cacert conjur_${{ inputs.account }}.pem"
         else
           CURL_CA_OPT="-k"
         fi
-
-        echo "Conjur token (first 40 chars): ${CONJUR_TOKEN:0:40}..."
 
         IFS=';' read -ra PAIRS <<< "${{ inputs.secrets }}"
 
@@ -113,32 +108,52 @@ runs:
           conjur_var="${pair%%|*}"
           env_name="${pair##*|}"
 
-          encoded=$(printf '%s' "$conjur_var" | sed 's/\//%2F/g')
-          SECRET_URL="${{ inputs.url }}/secrets/${{ inputs.account }}/variable/${encoded}"
+          # env var name is uppercased (same as official action)
+          env_name_upper=$(printf '%s' "$env_name" | tr '[:lower:]' '[:upper:]')
 
-          echo "Fetching $conjur_var → $env_name from $SECRET_URL"
+          # Full URL-encode (like entrypoint.sh's urlencode)
+          encode() {
+            local s="$1"
+            local out=""
+            local i c
+            local len=${#s}
+            for (( i=0; i<len; i++ )); do
+              c=${s:i:1}
+              case "$c" in
+                [a-zA-Z0-9.~_-]) out+="$c" ;;
+                ' ') out+="%20" ;;
+                *) printf -v hex '%02X' "'$c"; out+="%$hex" ;;
+              esac
+            done
+            printf '%s' "$out"
+          }
 
-          TMP_RESP=$(mktemp)
-          HTTP_CODE=$(curl -sS $CURL_CA_OPT \
-            -o "$TMP_RESP" \
-            -w "%{http_code}" \
-            -H "Authorization: Token token=${CONJUR_TOKEN}" \
+          encoded_var=$(encode "$conjur_var")
+
+          SECRET_URL="${{ inputs.url }}/secrets/${{ inputs.account }}/variable/${encoded_var}"
+
+          # Fetch secret
+          body_and_code=$(curl -sS $CURL_CA_OPT \
+            -w '\n%{http_code}' \
+            -H "Authorization: Token token=\"${CONJUR_TOKEN}\"" \
             "$SECRET_URL")
 
-          BODY=$(cat "$TMP_RESP")
-          rm -f "$TMP_RESP"
+          http_body=$(printf '%s' "$body_and_code" | sed '$d')
+          http_code=$(printf '%s' "$body_and_code" | tail -n1)
 
-          echo "HTTP code for $conjur_var: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" -ne 200 ]; then
-            echo "Failed to fetch $conjur_var (HTTP $HTTP_CODE)"
+          if [ "$http_code" -ne 200 ]; then
+            echo "Failed to fetch ${conjur_var} (HTTP ${http_code})"
             echo "Response body:"
-            echo "$BODY"
+            echo "$http_body"
             exit 1
           fi
 
-          echo "${env_name}=${BODY}" >> "$GITHUB_ENV"
-        done
+          if [ "$http_body" = "Malformed authorization token" ]; then
+            echo "Conjur returned 'Malformed authorization token' – auth token is invalid."
+            exit 1
+          fi
 
-          echo "${env_name}=${BODY}" >> "$GITHUB_ENV"
+          # Mask & export
+          echo "::add-mask::${http_body}"
+          echo "${env_name_upper}=${http_body}" >> "$GITHUB_ENV"
         done
