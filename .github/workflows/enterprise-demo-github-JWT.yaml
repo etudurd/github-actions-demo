@@ -15,7 +15,7 @@ jobs:
         with:
           url: ${{ secrets.CONJUR_URL_ENT }}
           account: poc-conjur
-          certificate: ${{ secrets.CERTIFICATE_ENT }}
+          #certificate: ${{ secrets.CERTIFICATE_ENT }}
           authn_id: ${{ secrets.AUTHN_ID_ENT }}
           secrets: secrets/github-user|sql_username;secrets/github-password|sql_password
 
