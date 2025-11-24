@@ -15,6 +15,7 @@ jobs:
           account: conjur
           host_id: ${{ secrets.CONJUR_HOST_ENT }}
           api_key: ${{ secrets.CONJUR_API_KEY_ENT }}
+          certificate: ${{ secrets.CERTIFICATE_ENT }}
           secrets: github-secret|sql_username
 
       - name: Print fetched secrets
