@@ -10,8 +10,8 @@ jobs:
      id-token: 'write'
      contents: 'read'
     steps:
-      - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
-        uses: cyberark/conjur-action@v2.0.12
+      - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
+        uses: ./.github/actions/conjur-jwt-fetcher
         with:
           url: ${{ secrets.CONJUR_URL_ENT }}
           account: poc-conjur
