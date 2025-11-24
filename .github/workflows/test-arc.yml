@@ -1,4 +1,4 @@
-name: ARC Testd
+name: ARC Testd2
 
 on:
   workflow_dispatch:
