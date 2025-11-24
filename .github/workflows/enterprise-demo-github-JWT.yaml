@@ -6,7 +6,9 @@ on:
 jobs:
   test:
     runs-on: self-hosted
-
+    permissions:
+     id-token: 'write'
+     contents: 'read'
     steps:
       - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
         uses: cyberark/conjur-action@v2.0.12
