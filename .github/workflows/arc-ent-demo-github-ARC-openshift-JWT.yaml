@@ -10,6 +10,7 @@ jobs:
      id-token: 'write'
      contents: 'read'
     steps:
+      - uses: actions/checkout@v2
       - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
         uses: ./.github/actions/conjur-jwt-fetcher
         with:
