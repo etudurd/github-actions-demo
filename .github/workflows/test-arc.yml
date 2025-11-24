@@ -1,9 +1,13 @@
 name: ARC Test
-on: workflow_dispatch
+
+on:
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: github-arc-runners
     steps:
       - uses: actions/checkout@v4
-      - run: echo "Running on OpenShift ARC runner!"
+      - run: |
+          echo "Hello from ARC runner on OpenShift"
+          uname -a
