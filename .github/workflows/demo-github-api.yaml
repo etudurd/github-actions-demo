@@ -1,4 +1,4 @@
-name: ARC Conjur Test
+name: ARC Conjur Test SelfHosted Conjur enteprise
 
 on:
   push:
