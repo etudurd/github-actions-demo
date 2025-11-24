@@ -12,7 +12,7 @@ jobs:
         uses: cyberark/conjur-action@v2.0.12
         with:
           url: ${{ secrets.CONJUR_URL_ENT }}
-          account: conjur
+          account: poc-conjur
           host_id: ${{ secrets.CONJUR_HOST_ENT }}
           api_key: ${{ secrets.CONJUR_API_KEY_ENT }}
           certificate: ${{ secrets.CERTIFICATE_ENT }}
