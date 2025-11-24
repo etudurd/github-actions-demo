@@ -1,4 +1,4 @@
-name: SelfHosted Conjur enteprise JWT AUTHN
+name: SelfHosted Conjur enteprise JWT AUTHN.
 
 on:
   push:
