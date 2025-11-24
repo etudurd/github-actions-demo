@@ -58,7 +58,6 @@ runs:
         echo "OIDC_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
     # 3) Authenticate to Conjur via authn-jwt
-    
     - name: Authenticate to Conjur
       id: conjur-auth
       shell: bash
@@ -79,7 +78,7 @@ runs:
           --data-urlencode "jwt=${OIDC_TOKEN}" \
           "$AUTH_URL")
 
-        # trim CR/LF (Conjur sometimes returns newline-terminated token)
+        # Just strip CR/LF, keep JSON/JWT structure intact
         CONJUR_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '\r\n')
 
         if [ -z "$CONJUR_TOKEN" ]; then
@@ -92,7 +91,7 @@ runs:
 
 
 
-    # 4) Fetch secrets using the mapping
+    # 4) Fetch secrets using the beared
     
     - name: Fetch Conjur secrets
       shell: bash
@@ -115,8 +114,6 @@ runs:
           conjur_var="${pair%%|*}"
           env_name="${pair##*|}"
 
-          # conjur_var is used as-is as the variable id (can have or not have 'secrets/' prefix)
-          # We only encode '/' -> '%2F' for the URL.
           encoded=$(printf '%s' "$conjur_var" | sed 's/\//%2F/g')
           SECRET_URL="${{ inputs.url }}/secrets/${{ inputs.account }}/variable/${encoded}"
 
@@ -126,7 +123,7 @@ runs:
           HTTP_CODE=$(curl -sS $CURL_CA_OPT \
             -o "$TMP_RESP" \
             -w "%{http_code}" \
-            -H "Authorization: Token token=\"${CONJUR_TOKEN}\"" \
+            -H "Authorization: Bearer ${CONJUR_TOKEN}" \
             "$SECRET_URL")
 
           BODY=$(cat "$TMP_RESP")
