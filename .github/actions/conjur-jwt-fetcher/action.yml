@@ -73,15 +73,14 @@ runs:
           CURL_CA_OPT="-k"   # PoC only
         fi
 
-        # capture raw response
         RAW_TOKEN=$(curl -sS $CURL_CA_OPT \
           -X POST \
           -H "Content-Type: application/x-www-form-urlencoded" \
           --data-urlencode "jwt=${OIDC_TOKEN}" \
           "$AUTH_URL")
 
-        # trim newlines / spaces
-        CONJUR_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '\r\n ')
+        # trim CR/LF (Conjur sometimes returns newline-terminated token)
+        CONJUR_TOKEN=$(printf '%s' "$RAW_TOKEN" | tr -d '\r\n')
 
         if [ -z "$CONJUR_TOKEN" ]; then
           echo "Failed to authenticate to Conjur via authn-jwt"
@@ -90,6 +89,7 @@ runs:
         fi
 
         echo "CONJUR_TOKEN=$CONJUR_TOKEN" >> "$GITHUB_ENV"
+
 
 
     # 4) Fetch secrets using the mapping
@@ -105,6 +105,8 @@ runs:
           CURL_CA_OPT="-k"
         fi
 
+        echo "Conjur token (first 40 chars): ${CONJUR_TOKEN:0:40}..."
+
         IFS=';' read -ra PAIRS <<< "${{ inputs.secrets }}"
 
         for pair in "${PAIRS[@]}"; do
@@ -113,8 +115,12 @@ runs:
           conjur_var="${pair%%|*}"
           env_name="${pair##*|}"
 
+          # conjur_var is used as-is as the variable id (can have or not have 'secrets/' prefix)
+          # We only encode '/' -> '%2F' for the URL.
           encoded=$(printf '%s' "$conjur_var" | sed 's/\//%2F/g')
           SECRET_URL="${{ inputs.url }}/secrets/${{ inputs.account }}/variable/${encoded}"
+
+          echo "Fetching $conjur_var → $env_name from $SECRET_URL"
 
           TMP_RESP=$(mktemp)
           HTTP_CODE=$(curl -sS $CURL_CA_OPT \
@@ -126,6 +132,8 @@ runs:
           BODY=$(cat "$TMP_RESP")
           rm -f "$TMP_RESP"
 
+          echo "HTTP code for $conjur_var: $HTTP_CODE"
+
           if [ "$HTTP_CODE" -ne 200 ]; then
             echo "Failed to fetch $conjur_var (HTTP $HTTP_CODE)"
             echo "Response body:"
@@ -133,6 +141,5 @@ runs:
             exit 1
           fi
 
-          # BODY is the secret value
           echo "${env_name}=${BODY}" >> "$GITHUB_ENV"
         done
