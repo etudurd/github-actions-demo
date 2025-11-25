@@ -1,0 +1,73 @@
+name: release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: github-arc-runners
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Fetch secrets from Conjur via curl (ARC, no Docker)
+        shell: bash
+        env:
+          CONJUR_URL: ${{ secrets.CONJUR_URL_ENT }}
+          CONJUR_ACCOUNT: poc-conjur
+          CONJUR_CERT: ${{ secrets.CERTIFICATE_ENT }}
+          AUTHN_ID: ${{ secrets.AUTHN_ID_ENT }}
+        run: |
+          set -euo pipefail
+
+          # CA handling
+          if [ -n "${CONJUR_CERT:-}" ]; then
+            echo "$CONJUR_CERT" > conjur_ca.pem
+            CURL_CA_OPT="--cacert conjur_ca.pem"
+          else
+            CURL_CA_OPT="-k"  # PoC only
+          fi
+
+          # 1) Get GitHub OIDC token
+          RAW_JSON=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL")
+          OIDC_TOKEN=$(printf '%s' "$RAW_JSON" | sed -n 's/.*"value"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
+          echo "OIDC_TOKEN=$OIDC_TOKEN" >> "$GITHUB_ENV"
+
+          # 2) Authenticate to Conjur (authn-jwt)
+          AUTH_URL="${CONJUR_URL}/authn-jwt/${AUTHN_ID}/${CONJUR_ACCOUNT}/authenticate"
+          CONJUR_TOKEN=$(curl -sS $CURL_CA_OPT \
+            -X POST \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Accept-Encoding: base64" \
+            --data-urlencode "jwt=${OIDC_TOKEN}" \
+            "$AUTH_URL")
+          echo "CONJUR_TOKEN=$CONJUR_TOKEN" >> "$GITHUB_ENV"
+
+          # 3) Fetch two secrets
+          enc() { printf '%s' "$1" | sed 's/\//%2F/g'; }
+
+          USER_URL="${CONJUR_URL}/secrets/${CONJUR_ACCOUNT}/variable/$(enc "AnsibleApp/secretVar")"
+          PASS_URL="${CONJUR_URL}/secrets/${CONJUR_ACCOUNT}/variable/$(enc "secrets/github-password")"
+
+          SQL_USERNAME=$(curl -sS $CURL_CA_OPT -H "Authorization: Token token=\"${CONJUR_TOKEN}\"" "$USER_URL")
+          SQL_PASSWORD=$(curl -sS $CURL_CA_OPT -H "Authorization: Token token=\"${CONJUR_TOKEN}\"" "$PASS_URL")
+
+          echo "::add-mask::${SQL_USERNAME}"
+          echo "::add-mask::${SQL_PASSWORD}"
+
+          echo "SQL_USERNAME=$SQL_USERNAME" >> "$GITHUB_ENV"
+          echo "SQL_PASSWORD=$SQL_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Print fetched secrets
+        shell: bash
+        run: |
+          echo -n 'Retrieved username [ '
+          echo -n "$SQL_USERNAME" | sed 's/./& /g'
+          echo -n '] and password [ '
+          echo -n "$SQL_PASSWORD" | sed 's/./& /g'
+          echo ' ]'
