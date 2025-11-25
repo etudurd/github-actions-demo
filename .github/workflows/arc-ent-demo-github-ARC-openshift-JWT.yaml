@@ -24,7 +24,7 @@ jobs:
           account: poc-conjur
           certificate: ${{ secrets.CERTIFICATE_ENT }}
           authn_id: ${{ secrets.AUTHN_ID_ENT }}
-          secrets: secrets/gitlab-password|sql_username;secrets/github-password|sql_password
+          secrets: AnsibleApp/secretVar|sql_username;secrets/github-password|sql_password
           
 #this can be ignored, used for debugging of the token
 
