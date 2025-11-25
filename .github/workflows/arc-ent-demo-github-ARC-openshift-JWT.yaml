@@ -14,8 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # MUST run after OIDC token is generated inside the composite acftionf,
-      # So we print it after the action populates $OIDC_TOKEN in GITHUB_ENVd
+      # MUST run after OIDC token is generated inside the action composite aka plugin,
+      # I have used checkout 2 for wider compatibility, i recommedn v3+
 
       - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
         uses: ./.github/actions/conjur-jwt-fetcher
@@ -25,6 +25,8 @@ jobs:
           certificate: ${{ secrets.CERTIFICATE_ENT }}
           authn_id: ${{ secrets.AUTHN_ID_ENT }}
           secrets: secrets/github-user|sql_username;secrets/github-password|sql_password
+          
+#this can be ignored, used for debugging of the token
 
       - name: Debug OIDC token header/payload (no signature)
         shell: bash
@@ -42,7 +44,7 @@ jobs:
           echo "Payload:"
           echo "$P" | base64 -d 2>/dev/null || echo "b64 decode error"
 
-
+# demo - fetch the values 2nd option with mask off
       - name: Print fetched secrets
         run: |
           echo "Username: $SQL_USERNAME"
