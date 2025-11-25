@@ -1,0 +1,58 @@
+name: release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: github-arc-runners
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # MUST run after OIDC token is generated inside the action composite aka plugin.. .
+      # I have used checkout 2 for wider compatibility, i recommedn v3+
+
+      - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
+        uses: ./.github/actions/conjur-jwt-fetcher
+        with:
+          url: ${{ secrets.CONJUR_URL }}
+          account: conjur
+          authn_id: ${{ secrets.AUTHN_ID_2 }}
+          secrets: data/vault/poc-tud-2025/Database-MySQL-poc-username/username|sql_username;data/vault/poc-tud-2025/Database-MySQL-poc-username/password|sql_password
+          
+#this can be ignored, used for debugging of the token
+
+      - name: Debug OIDC token header/payload (no signature)
+        shell: bash
+        run: |
+          if [ -z "$OIDC_TOKEN" ]; then
+            echo "OIDC_TOKEN is empty — this means Conjur authn failed BEFORE token was exported."
+            exit 1
+          fi
+
+          IFS='.' read -r H P S <<< "$OIDC_TOKEN"
+          echo "Header:"
+          echo "$H" | base64 -d 2>/dev/null || echo "b64 decode error"
+
+          echo ""
+          echo "Payload:"
+          echo "$P" | base64 -d 2>/dev/null || echo "b64 decode error"
+
+# demo - fetch the values 2nd option with mask off
+      - name: Print fetched secrets
+        run: |
+          echo "Username: $SQL_USERNAME"
+          echo "Password: $SQL_PASSWORD"
+          
+      - name: Print fetched secrets
+        run: |
+          echo -n 'Retrieved username [ '
+          echo -n "$SQL_USERNAME" | sed 's/./& /g'
+          echo -n '] and password [ '
+          echo -n "$SQL_PASSWORD" | sed 's/./& /g'
+          echo ' ]'
