@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v2
 
       # MUST run after OIDC token is generated inside the action composite aka plugin.,
-      # I have used checkout 2 for wider compatibility, i recommedn v3+.
+      # I have used checkout 2 for wider compatibility, i recommedn v3+..
 
       - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
         uses: ./.github/actions/conjur-jwt-fetcher
