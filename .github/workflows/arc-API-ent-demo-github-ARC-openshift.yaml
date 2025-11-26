@@ -18,7 +18,7 @@ jobs:
       # I have used checkout 2 for wider compatibility, i recommedn v3+...
 
       - name: Fetch secrets from Conjur via JWT (ARC, no Docker)
-        uses: ./.github/actions+api.yml/conjur-jwt-fetcher
+        uses: ./.github/actions/conjur-jwt-fetcher/action+api.yml
         with:
           url: ${{ secrets.CONJUR_URL_ENT }}
           account: poc-conjur
