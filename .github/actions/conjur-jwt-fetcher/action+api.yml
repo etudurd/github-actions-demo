@@ -1,0 +1,171 @@
+name: "Conjur JWT/API Fetcher @tudorUrdes"
+description: "Fetch secrets from CyberArk Conjur using GitHub OIDC JWT or API auth (host+API key), dockerless"
+
+inputs:
+  url:
+    description: "Base URL of Conjur, e.g. https://10.10.10.198 or FQDN"
+    required: true
+  account:
+    description: "Conjur account name (e.g. conjur, poc-conjur)"
+    required: true
+  certificate:
+    description: "PEM CA certificate for Conjur TLS (optional)"
+    required: false
+
+  # --- JWT auth ---
+  authn_id:
+    description: "authn-jwt/<id> configured in Conjur (e.g. authn-jwt/github)"
+    required: false
+
+  custom_audience:
+    description: "Set 'true' to provide a custom OIDC audience. Default: false (audience = authn_id)"
+    required: false
+    default: "false"
+
+  audience:
+    description: "Custom OIDC audience (only used when custom_audience=true)"
+    required: false
+
+  # --- API auth ---
+  host_id:
+    description: "Conjur host ID for API auth (e.g. host/github-actions/runner)"
+    required: false
+  api_key:
+    description: "API key for the host identity"
+    required: false
+
+  secrets:
+    description: "Mapping: conjur-var-id|ENV;conjur-var-id2|ENV2"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Write CA certificate if provided
+      id: write-cert
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.certificate }}" ]; then
+          echo "${{ inputs.certificate }}" > conjur-ca.pem
+          echo "ca_file=conjur-ca.pem" >> "$GITHUB_OUTPUT"
+        else
+          echo "ca_file=" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Authenticate to Conjur and fetch secrets
+      shell: bash
+      env:
+        CONJUR_URL: ${{ inputs.url }}
+        CONJUR_ACCOUNT: ${{ inputs.account }}
+        CONJUR_AUTHN_ID: ${{ inputs.authn_id }}
+        CUSTOM_AUD: ${{ inputs.custom_audience }}
+        CUSTOM_AUD_VALUE: ${{ inputs.audience }}
+        CONJUR_HOST_ID: ${{ inputs.host_id }}
+        CONJUR_API_KEY: ${{ inputs.api_key }}
+        CONJUR_SECRETS: ${{ inputs.secrets }}
+        CA_FILE: ${{ steps.write-cert.outputs.ca_file }}
+        ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+        ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+      run: |
+        set -euo pipefail
+
+        if [ -n "${CA_FILE:-}" ]; then
+          CURL_CA="--cacert ${CA_FILE}"
+        else
+          CURL_CA=""
+        fi
+
+        base_url="${CONJUR_URL%/}"
+
+        # -----------------------------------------------------
+        # Determine OIDC audience
+        # -----------------------------------------------------
+        if [ "${CUSTOM_AUD}" = "true" ]; then
+          if [ -z "${CUSTOM_AUD_VALUE}" ]; then
+            echo "ERROR: custom_audience=true but no 'audience' was provided" >&2
+            exit 1
+          fi
+          OIDC_AUD="${CUSTOM_AUD_VALUE}"
+        else
+          OIDC_AUD="${CONJUR_AUTHN_ID}"
+        fi
+
+        get_github_oidc_token() {
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "ERROR: GitHub OIDC env vars missing. Add 'permissions: id-token: write' to the job." >&2
+            exit 1
+          fi
+
+          curl -sS \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUD}" | jq -r '.value'
+        }
+
+        echo "==> Authenticating to Conjur..."
+
+        CONJUR_AUTH_TOKEN=""
+
+        # -----------------------------------------------------
+        # API AUTH (if host_id & api_key are provided)
+        # -----------------------------------------------------
+        if [ -n "${CONJUR_HOST_ID}" ] && [ -n "${CONJUR_API_KEY}" ]; then
+          echo "Using API authentication..."
+
+          HOST_ESC="${CONJUR_HOST_ID//\//%2F}"
+
+          RAW="$(curl -sS ${CURL_CA} \
+            --data "${CONJUR_API_KEY}" \
+            "${base_url}/authn/${CONJUR_ACCOUNT}/${HOST_ESC}/authenticate")"
+
+          CONJUR_AUTH_TOKEN="$(printf '%s' "${RAW}" | base64 | tr -d '\n')"
+
+        # -----------------------------------------------------
+        # JWT AUTH (OIDC -> authn-jwt/<id>)
+        # -----------------------------------------------------
+        elif [ -n "${CONJUR_AUTHN_ID}" ]; then
+          echo "Using JWT authentication with audience = ${OIDC_AUD}"
+
+          JWT="$(get_github_oidc_token)"
+
+          B64="$(curl -sS ${CURL_CA} \
+            -H "Accept-Encoding: base64" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data "jwt=${JWT}" \
+            "${base_url}/authn-jwt/${CONJUR_AUTHN_ID}/${CONJUR_ACCOUNT}/authenticate")"
+
+          CONJUR_AUTH_TOKEN="$(printf '%s' "${B64}" | tr -d '\n')"
+
+        else
+          echo "ERROR: No authentication method provided: set host_id+api_key OR authn_id." >&2
+          exit 1
+        fi
+
+        if [ -z "${CONJUR_AUTH_TOKEN}" ]; then
+          echo "ERROR: Could not obtain Conjur auth token" >&2
+          exit 1
+        fi
+
+        echo "==> Fetching secrets..."
+
+        IFS=';' read -r -a pairs <<< "${CONJUR_SECRETS}"
+
+        for p in "${pairs[@]}"; do
+          [ -z "$p" ] && continue
+          id="${p%%|*}"
+          envv="${p##*|}"
+
+          url="${base_url}/secrets/${CONJUR_ACCOUNT}/variable/${id}"
+
+          val="$(curl -sS ${CURL_CA} -H "Authorization: Token token=\"${CONJUR_AUTH_TOKEN}\"" "$url")"
+
+          echo "::add-mask::$val"
+          {
+            echo "${envv}<<EOF"
+            echo "$val"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+        done
+
+        echo "==> Done."
