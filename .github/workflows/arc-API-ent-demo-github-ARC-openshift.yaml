@@ -31,13 +31,13 @@ jobs:
 # demo - fetch the values 2nd option with mask off
       - name: Print fetched secrets
         run: |
-         # echo "Username: $SQL_USERNAME"
+          echo "Username: $SQL_PASSWORD"
           echo "Password: $SQL_PASSWORD"
           
       - name: Print fetched secrets
         run: |
           echo -n 'Retrieved username [ '
-       #  # echo -n "$SQL_USERNAME" | sed 's/./& /g'
+          echo -n "$SQL_PASSWORD | sed 's/./& /g'
           echo -n '] and password [ '
           echo -n "$SQL_PASSWORD" | sed 's/./& /g'
           echo ' ]'
