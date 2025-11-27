@@ -27,24 +27,6 @@ jobs:
           certificate: ${{ secrets.CERTIFICATE_ENT }}
           secrets: secrets/github-user|sql_username;secrets/github-password|sql_password
 
-          
-#this can be ignored, used for debugging of the token
-
-      - name: Debug OIDC token header/payload (no signature)
-        shell: bash
-        run: |
-          if [ -z "$OIDC_TOKEN" ]; then
-            echo "OIDC_TOKEN is empty — this means Conjur authn failed BEFORE token was exported."
-            exit 1
-          fi
-
-          IFS='.' read -r H P S <<< "$OIDC_TOKEN"
-          echo "Header:"
-          echo "$H" | base64 -d 2>/dev/null || echo "b64 decode error"
-
-          echo ""
-          echo "Payload:"
-          echo "$P" | base64 -d 2>/dev/null || echo "b64 decode error"
 
 # demo - fetch the values 2nd option with mask off
       - name: Print fetched secrets
