@@ -25,7 +25,7 @@ jobs:
           host_id: ${{ secrets.CONJUR_HOST_ENT }}
           api_key: ${{ secrets.CONJUR_API_KEY_ENT }}
           certificate: ${{ secrets.CERTIFICATE_ENT }}
-          secrets: secrets/github-secret|sql_password
+          secrets: github-secret|sql_password
 
 
 # demo - fetch the values 2nd option with mask off
