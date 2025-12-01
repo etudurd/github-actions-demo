@@ -3,8 +3,8 @@ on: [push]
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    #or    runs-on: self-hosted
+    runs-on: self-hosted
+    #or   ubuntu-latest runs-on: self-hosted
     permissions:
       id-token: 'write'
       contents: 'read'
