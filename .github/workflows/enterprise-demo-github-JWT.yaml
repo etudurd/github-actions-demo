@@ -19,7 +19,7 @@ jobs:
           authn_id: ${{ secrets.AUTHN_ID_ENT }}
           secrets: secrets/github-user|sql_username;secrets/github-password|sql_password
 
-      - name: Print fetched secrets.
+      - name: Print fetched secrets
         run: |
           echo -n 'Retrieved username [ '
           echo -n $SQL_USERNAME | sed 's/./& /g'
