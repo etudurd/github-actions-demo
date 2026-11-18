@@ -5,7 +5,8 @@ on:
 
 jobs:
   test:
-    runs-on: github-arc-runners
+    runs-on: self-hosted
+    #runs-on: github-arc-runners
 
     permissions:
       id-token: write
